@@ -36,9 +36,9 @@ def create_databases():
             'schema': '''
                 CREATE TABLE IF NOT EXISTS people (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    name TEXT NOT NULL DEFAULT 'Unknown',
+                    name TEXT NOT NULL DEFAULT 'Unknown',  # partyt to be delete
                     image_path TEXT,
-                    encoding BLOB NOT NULL,
+                    encoding BLOB NOT NULL,    # partyt to be delete
                     visits INTEGER DEFAULT 1,
                     first_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP
