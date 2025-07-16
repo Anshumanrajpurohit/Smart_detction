@@ -1,0 +1,9 @@
+_pycache_/
+*.pyc
+*.pyo
+*.pyd
+*.db
+*.json
+db/
+faces_old*/
+venv/
