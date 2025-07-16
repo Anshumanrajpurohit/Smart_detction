@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # 📸 Smart_detection
 
 This project focuses on **real-time detection and counting of unique individuals** appearing in a camera frame. Alongside counting, it also **extracts key features** such as:
@@ -46,3 +47,27 @@ All detected and extracted data is stored in a **structured database** for furth
 4.**Run the program**
 ```bash
     python main.py
+=======
+# Face_Count Project
+
+A face detection and recognition system with optional Firebase integration.
+
+## 📁 Folder Structure
+
+- `creating_db.py` – Create the local database (if used)
+- `db_face_compare.py` – Compare stored faces with input
+- `detecting_storing.py` – Detect faces from webcam and store
+- `main-prg-mangr.py` – Main program logic
+- `migrate_to_firebase.py` – Upload to Firebase (optional)
+- `genedder.py` – (Possibly gender classification)
+- `faces/` – Stores captured face images
+- `env-reqmt.txt` – Python dependencies
+
+## 🚀 Quickstart
+
+```bash
+python -m venv venv
+.\venv\Scripts\activate
+pip install -r env-reqmt.txt
+python main-prg-mangr.py
+>>>>>>> ce771a6 (all updated)
