@@ -1,30 +1,36 @@
 import sqlite3
 import firebase_admin
-from firebase_admin import credentials, firestore
+from firebase_admin import credentials, db
 
-# Step 1: Initialize Firebase
-cred = credentials.Certificate("serviceAccountKey.json")  # Replace if filename is different
-firebase_admin.initialize_app(cred)
-db = firestore.client()
+# Load Firebase credentials
+cred = credentials.Certificate("bharat-camera-detctnn-firebase-adminsdk-fbsvc-dab4da7a6b.json")
+firebase_admin.initialize_app(cred, {
+    'databaseURL': 'https://bharat-camera-detctnn-default-rtdb.firebaseio.com/'
+})
 
-# Step 2: Connect to SQLite
-conn = sqlite3.connect("your_local_db.sqlite")  # Change if your file name is different
+# Connect to SQLite database
+conn = sqlite3.connect('db/people.db')
 cursor = conn.cursor()
 
-# Step 3: Fetch data from your local table
-# Change the query based on your actual table and column names
-cursor.execute("SELECT user_id, pace, timestamp FROM pace_predictions")  
+# Fetch all records
+cursor.execute("SELECT name, image_path, encoding, visits, first_seen, last_seen, gender, quality_score FROM people")
 rows = cursor.fetchall()
 
-# Step 4: Upload to Firebase
+# Reference to Firebase
+ref = db.reference('people')
+
+# Push each record
 for row in rows:
-    doc = {
-        "user_id": row[0],
-        "pace": row[1],
-        "timestamp": row[2]
+    person_data = {
+        'name': row[0],
+        'image_path': row[1],
+        'encoding': row[2],
+        'visits': row[3],
+        'first_seen': row[4],
+        'last_seen': row[5],
+        'gender': row[6],
+        'quality_score': row[7]
     }
-    db.collection("pace_predictions").add(doc)
+    ref.push(person_data)
 
-print(f"✅ Uploaded {len(rows)} records to Firebase!")
-
-conn.close()
+print("✅ Data migration to Firebase completed.")
