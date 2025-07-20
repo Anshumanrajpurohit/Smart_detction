@@ -1,7 +1,7 @@
-from supabase import create_client, Client
+from supabase import create_client 
 
 SUPABASE_URL = "https://hwxyuvtfoyzycggbypmo.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh3eHl1dnRmb3l6eWNnZ2J5cG1vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI5OTY5NTYsImV4cCI6MjA2ODU3Mjk1Nn0._pvwyaNrQbBTwp7440b-5bMRJs4jmkk_TtRCl6H5llA"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh3eHl1dnRmb3l6eWNnZ2J5cG1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1Mjk5Njk1NiwiZXhwIjoyMDY4NTcyOTU2fQ.wNZitOMcjXGAAMbmOLuS-eRpaKPzsaPM0vZ2FKXpAho"
 SUPABASE_BUCKET1 = "android"
 SUPABASE_BUCKET2 = "faces"
 
