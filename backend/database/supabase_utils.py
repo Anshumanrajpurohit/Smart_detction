@@ -1,5 +1,5 @@
 import requests
-from config import supabase, SUPABASE_BUCKET1
+from config import supabase, SUPABASE_BUCKET1 ,SUPABASE_BUCKET2
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
 import io
@@ -28,3 +28,15 @@ def get_images_from_supabase():
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching images: {str(e)}")
+
+@app.post("/upload")
+def upload_image_to_supabse():
+    try:
+        upload = supabase.storage.from_(SUPABASE_BUCKET2).upload("persion_002.jpg","/Face_Count/H/backend/face_1_20250710_214507_478_q0.81_c75.jpg")
+        if not upload:
+            raise HTTPException(status_code=200, detail="Bhai Upload Hogaya")
+        else:
+            return {"BHai tu haglass ": upload.data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error uploading image: {str(e)}")
+    
