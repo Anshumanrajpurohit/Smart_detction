@@ -44,35 +44,28 @@ def predict_age(image_path):
 
     age = bucket_idx
     age_range = age
-    if 0<age<5:
-        age_range = "0-5"
-    elif 5<age<10:
-        age_range = "5-10"
-    elif 10<age<15:
-        age_range = "10-15"
-    elif 15<age<20:
-        age_range = "15-20"
-    elif 20<age<25:
-        age_range = "20-25"
-    elif 25<age<30:
-        age_range = "25-30"
-    elif 30<age<35:
-        age_range = "30-35"
-    elif 35<age<40:
-        age_range = "35-40"
-    elif 40<age<45:
-        age_range = "40-45"
-    elif 45<age<50:
-        age_range = "45-50"
-    elif 50<age<55:
-        age_range = "50-55"
-    elif 55<age<60:
-        age_range = "55-60"
+    if 0<age<10:
+        age_range = "0-10"
+    elif 10<age<20:
+        age_range = "10-20"
+    elif 20<age<30:
+        age_range = "20-30"
+    elif 30<age<40:
+        age_range = "30-40"
+    elif 40<age<50:
+        age_range = "40-50"
+    elif 50<age<60:
+        age_range = "50-60"
+    elif 60<age<70:
+        age_range = "60-70"
+    elif 70<age<80:
+        age_range = "70-80"
+    elif 80<age<90:
+        age_range = "80-90"
     else:
-        age_range = "70+"
+        age_range = "90+"
     
-    return age_range  # ( bhai if possible keep range thoda big approx width of 10)
-
+    return age_range 
 
 
 # genders = ['Female', 'Male']
