@@ -1,5 +1,5 @@
 from fastapi import FastAPI,HTTPException, Depends
-from routers.android_post import router as supabase_router
+from Smart_detction.backend.routers.process_image import router as supabase_router
 
 app = FastAPI()
 
