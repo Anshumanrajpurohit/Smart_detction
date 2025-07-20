@@ -1,12 +1,13 @@
 import requests
-from config import supabase, SUPABASE_BUCKET1
-from fastapi import FastAPI, HTTPException
+from database.config import supabase, SUPABASE_BUCKET1,SUPABASE_BUCKET2
+from fastapi import FastAPI, HTTPException,APIRouter
 from fastapi.responses import StreamingResponse
 import io
 
-app = FastAPI()
 
-@app.get("/images")
+router = APIRouter()
+
+@router.get("/images")
 def get_images_from_supabase():
     try:
         # List all files in the Supabase bucket
@@ -28,3 +29,14 @@ def get_images_from_supabase():
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching images: {str(e)}")
+    
+@router.post("/images/upload")
+def upload_image_to_supabase(file: bytes):
+    try:
+        file_name = "uploaded_image.jpg" 
+        supabase.storage.from_(SUPABASE_BUCKET2).upload(file_name, file)
+
+        return {"message": "Image uploaded successfully", "file_name": file_name}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error uploading image: {str(e)}")
