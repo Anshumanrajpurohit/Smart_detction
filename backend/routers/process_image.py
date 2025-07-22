@@ -3,7 +3,7 @@ from database.config import supabase, SUPABASE_BUCKET1,SUPABASE_BUCKET2
 from fastapi import FastAPI, HTTPException,APIRouter
 from fastapi.responses import StreamingResponse
 import io
-from backend.services.imahge_handler import get_images_from_supabase, upload_image_to_supabase
+from Smart_detction.backend.services.image_handler import get_images_from_supabase, upload_image_to_supabase
 
 
 ## Create a router for the image processing endpoints
