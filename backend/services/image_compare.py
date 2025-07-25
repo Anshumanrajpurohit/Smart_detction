@@ -37,13 +37,13 @@ async def face_compare(emb1,emb2):
     return cosine_similarity(emb1,emb2) > threshold    
 
 def process_faces_from_supabase():
-    print("🔍 Starting Supabase-based face comparison process...")
+    print(" Starting Supabase-based face comparison process...")
 
     # Fetch new faces from `new_faces` table
     new_faces = supabase.table("new_faces").select("*").execute().data
 
     if not new_faces:
-        print("ℹ️ No new faces to process")
+        print("ℹ No new faces to process")
         return
 
     # Fetch old and master faces
@@ -70,7 +70,7 @@ def process_faces_from_supabase():
                     old_embedding = decode_embedding(old["embedding"])
                     match, dist, type_ = compare_faces_strict(old_embedding, embedding)
                     if match and type_ == "exact_match":
-                        print(f"❌ Exact duplicate found (dist: {dist:.3f})")
+                        print(f" Exact duplicate found (dist: {dist:.3f})")
                         supabase.table("new_faces").delete().eq("id", new_face["id"]).execute()
                         is_duplicate = True
                         break
@@ -102,7 +102,7 @@ def process_faces_from_supabase():
 
                     # Remove from new_faces
                     supabase.table("new_faces").delete().eq("id", new_face["id"]).execute()
-                    print(f"✅ Matched known person ID {matched_id}, visit count increased")
+                    print(f"Matched known person ID {matched_id}, visit count increased")
                 else:
                     # --- Step 3: Add new person ---
                     gender = predict_gender(new_url)
@@ -129,12 +129,12 @@ def process_faces_from_supabase():
 
                     # Remove from new_faces
                     supabase.table("new_faces").delete().eq("id", new_face["id"]).execute()
-                    print(f"🆕 Added new person '{name}'")
+                    print(f"Added new person '{name}'")
 
         except Exception as e:
-            print(f"❌ Error processing face ID {new_face.get('id')}: {e}")
+            print(f"Error processing face ID {new_face.get('id')}: {e}")
             continue
 
-    print("✅ Supabase face processing completed.")
+    print("Supabase face processing completed.")
 
 
