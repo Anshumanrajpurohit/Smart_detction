@@ -17,10 +17,10 @@ app.prepare(ctx_id=0, det_size=(640, 640))
 
 threshold = 0.6
 
-def cosine_similarity(emb1, emb2):
+async def cosine_similarity(emb1, emb2):
     return dot(emb1, emb2) / (norm(emb1) * norm(emb2))
 
-async def face_extraction(img_bytes: bytes) -> bool:
+async def face_extraction(img_bytes: bytes):
 
     img = cv2.imdecode(np.frombuffer(img_bytes, np.uint8), cv2.IMREAD_COLOR)
     faces = app.get(img)
@@ -36,17 +36,14 @@ async def face_extraction(img_bytes: bytes) -> bool:
 async def face_compare(emb1,emb2):
     return cosine_similarity(emb1,emb2) > threshold    
 
-def process_faces_from_supabase():
-    print(" Starting Supabase-based face comparison process...")
-
-    # Fetch new faces from `new_faces` table
+async def process_faces_from_supabase():
+    
     new_faces = supabase.table("new_faces").select("*").execute().data
 
     if not new_faces:
-        print("ℹ No new faces to process")
+        print("No new faces to process")
         return
 
-    # Fetch old and master faces
     old_faces = supabase.table("old_faces").select("*").execute().data
     master_faces = supabase.table("master_faces").select("*").execute().data
 
@@ -62,15 +59,15 @@ def process_faces_from_supabase():
                 continue
 
             for cropped_face, embedding in extracted_faces:
-                serialized_embedding = encode_embedding(embedding)
+                # serialized_embedding = encode_embedding(embedding)
 
                 is_duplicate = False
                 # --- Step 1: Check with old faces ---
                 for old in old_faces:
-                    old_embedding = decode_embedding(old["embedding"])
-                    match, dist, type_ = compare_faces_strict(old_embedding, embedding)
-                    if match and type_ == "exact_match":
-                        print(f" Exact duplicate found (dist: {dist:.3f})")
+                    # old_embedding = decode_embedding(old["embedding"])
+                    old_embedding = old["embedding"]
+                    match = face_compare(old_embedding, embedding)
+                    if match:
                         supabase.table("new_faces").delete().eq("id", new_face["id"]).execute()
                         is_duplicate = True
                         break
@@ -81,7 +78,8 @@ def process_faces_from_supabase():
                 # --- Step 2: Check with master_faces for similarity ---
                 matched_id = None
                 for person in master_faces:
-                    master_embedding = decode_embedding(person["embedding"])
+                    # master_embedding = decode_embedding(person["embedding"])
+                    master_embedding = person["embedding"]
                     if await face_compare(master_embedding, embedding):
                         matched_id = person["id"]
                         break
@@ -96,7 +94,8 @@ def process_faces_from_supabase():
                     # Add to old_faces
                     supabase.table("old_faces").insert({
                         "image_url": new_url,
-                        "embedding": serialized_embedding,
+                        # "embedding": serialized_embedding,
+                        "embedding" : embedding,
                         "timestamp": datetime.now().isoformat()
                     }).execute()
 
@@ -112,7 +111,8 @@ def process_faces_from_supabase():
                     supabase.table("master_faces").insert({
                         "name": name,
                         "image_url": new_url,
-                        "embedding": serialized_embedding,
+                        # "embedding": serialized_embedding,
+                        "embedding": embedding,
                         "visits": 1,
                         "age": age,
                         "gender": gender,
@@ -123,7 +123,8 @@ def process_faces_from_supabase():
                     # Add to old_faces
                     supabase.table("old_faces").insert({
                         "image_url": new_url,
-                        "embedding": serialized_embedding,
+                        # "embedding": serialized_embedding,
+                        "embedding": embedding,
                         "timestamp": datetime.now().isoformat()
                     }).execute()
 
