@@ -5,12 +5,14 @@ from insightface.app import FaceAnalysis
 from numpy import dot
 from numpy.linalg import norm
 import asyncio
-from fastapi import UploadFile, File
+from fastapi import UploadFile, File, HTTPException
 import io
 from datetime import datetime
 from database.config import supabase, SUPABASE_BUCKET1, SUPABASE_BUCKET2
 from backend.services.predictor import predict_gender, predict_age
 from backend.services.image_handler import get_images_from_supabase,upload_image_to_supabase
+import base64
+import json
 
 app = FaceAnalysis(name='buffalo_l')
 app.prepare(ctx_id=0, det_size=(640, 640))
@@ -33,8 +35,21 @@ async def face_extraction(img_bytes: bytes):
         results.append((cropped_face, embedding))
     return results
 
+
 async def face_compare(emb1,emb2):
-    return cosine_similarity(emb1,emb2) > threshold    
+    return cosine_similarity(emb1,emb2) > threshold 
+
+
+async def download_image_from_url(url: str,BUCKET):
+    image_byte = supabase.storage.from_(BUCKET).download(url)
+    return image_byte  
+
+async def encode_embedding(embedding) -> str:
+    return base64.b64encode(embedding.astype(np.float32).tobytes()).decode('utf-8')
+
+async def decode_embedding(encoded_embedding: str) -> np.ndarray:
+    decode_bytes = base64.b64encode(encoded_embedding.encode('utf-8'))
+    return np.frombuffer(decode_bytes, dtype=np.float32)
 
 async def process_faces_from_supabase():
     
@@ -49,8 +64,8 @@ async def process_faces_from_supabase():
 
     for new_face in new_faces:
         try:
-            new_url = new_face["image_url"]
-            new_image_bytes = download_image_from_url(new_url)
+            new_url = new_face["c_path"]
+            new_image_bytes = await download_image_from_url(new_url,SUPABASE_BUCKET1)
             if not new_image_bytes:
                 continue
 
@@ -62,10 +77,8 @@ async def process_faces_from_supabase():
                 # serialized_embedding = encode_embedding(embedding)
 
                 is_duplicate = False
-                # --- Step 1: Check with old faces ---
                 for old in old_faces:
-                    # old_embedding = decode_embedding(old["embedding"])
-                    old_embedding = old["embedding"]
+                    old_embedding = decode_embedding(old["embedding"])
                     match = face_compare(old_embedding, embedding)
                     if match:
                         supabase.table("new_faces").delete().eq("id", new_face["id"]).execute()
@@ -75,60 +88,53 @@ async def process_faces_from_supabase():
                 if is_duplicate:
                     continue
 
-                # --- Step 2: Check with master_faces for similarity ---
                 matched_id = None
                 for person in master_faces:
-                    # master_embedding = decode_embedding(person["embedding"])
-                    master_embedding = person["embedding"]
-                    if await face_compare(master_embedding, embedding):
+                    master_embedding = decode_embedding(person["embedding"])
+
+                    if await face_compare(master_embedding, old_embedding):
                         matched_id = person["id"]
                         break
 
                 if matched_id:
-                    # Update visit count and last seen
                     supabase.table("master_faces").update({
-                        "visits": person["visits"] + 1,
+                        "visit": person["visits"] + 1,
                         "last_seen": datetime.now().isoformat()
                     }).eq("id", matched_id).execute()
 
-                    # Add to old_faces
                     supabase.table("old_faces").insert({
                         "image_url": new_url,
-                        # "embedding": serialized_embedding,
-                        "embedding" : embedding,
-                        "timestamp": datetime.now().isoformat()
+                        "embedding": encode_embedding(embedding),
+                        # "timestamp": datetime.now().isoformat()
                     }).execute()
 
                     # Remove from new_faces
                     supabase.table("new_faces").delete().eq("id", new_face["id"]).execute()
                     print(f"Matched known person ID {matched_id}, visit count increased")
                 else:
-                    # --- Step 3: Add new person ---
-                    gender = predict_gender(new_url)
-                    age = predict_age(new_url)
+                    gender = predict_gender(new_image_bytes)
+                    age = predict_age(new_image_bytes)
                     name = f"Person_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
                     supabase.table("master_faces").insert({
-                        "name": name,
-                        "image_url": new_url,
-                        # "embedding": serialized_embedding,
-                        "embedding": embedding,
-                        "visits": 1,
+                        "c_name": name,
+                        "c_path": new_url,
+                        "embedding": encode_embedding(embedding),
+                        "visit": 1,
                         "age": age,
                         "gender": gender,
                         "first_seen": datetime.now().isoformat(),
                         "last_seen": datetime.now().isoformat()
                     }).execute()
 
-                    # Add to old_faces
+                    
                     supabase.table("old_faces").insert({
-                        "image_url": new_url,
-                        # "embedding": serialized_embedding,
-                        "embedding": embedding,
-                        "timestamp": datetime.now().isoformat()
+                        "c_path": new_url,
+                        "embedding": encode_embedding(embedding),
+                        # "timestamp": datetime.now().isoformat()
                     }).execute()
 
-                    # Remove from new_faces
+    
                     supabase.table("new_faces").delete().eq("id", new_face["id"]).execute()
                     print(f"Added new person '{name}'")
 

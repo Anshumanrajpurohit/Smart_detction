@@ -6,13 +6,11 @@ from PIL import Image
 
 genders = ['Female', 'Male']
 
-def predict_gender(image_path):
-    if not os.path.exists(image_path):
-        print(f"Image not found: {image_path}")
-        return None
-
+def predict_gender(img_bytes):
     try:
-        # print(f"Processing image: {image_path}")
+
+        image_path = cv2.imdecode(np.frombuffer(img_bytes, np.uint8), cv2.IMREAD_COLOR)
+
         result = DeepFace.analyze(img_path=image_path, actions=['gender'], enforce_detection=False)
 
         gender_scores = result[0]['gender']
@@ -26,18 +24,14 @@ def predict_gender(image_path):
         return None
 
 
-def predict_age(image_path):
-    image_pil = Image.open(image_path).convert("RGB")
-
-    image_np = np.array(image_pil)
-
-    image_cv = cv2.cvtColor(image_np, cv2.COLOR_RGB2BGR)
+def predict_age(img_bytes):
+    image_path = cv2.imdecode(np.frombuffer(img_bytes, np.uint8), cv2.IMREAD_COLOR)
 
 
 
     net = cv2.dnn.readNetFromCaffe('age_prediction.prototxt', 'model.caffemodel')
 
-    blob = cv2.dnn.blobFromImage(image_cv, scalefactor=1.0, size=(224, 224), mean=(104, 117, 123))
+    blob = cv2.dnn.blobFromImage(image_path, scalefactor=1.0, size=(224, 224), mean=(104, 117, 123))
     net.setInput(blob)
     output = net.forward()
     bucket_idx = output[0].argmax()
