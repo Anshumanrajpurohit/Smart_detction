@@ -3,15 +3,14 @@ from database.config import supabase, SUPABASE_BUCKET1,SUPABASE_BUCKET2
 from fastapi import FastAPI, HTTPException,APIRouter
 from fastapi.responses import StreamingResponse
 import io
-from Smart_detction.backend.services.image_handler import get_images_from_supabase, upload_image_to_supabase
 
 
 ## Create a router for the image processing endpoints
 
 router = APIRouter()
 
-@router.get("/process_images")
-def process_image():
+@router.post("/process_images")
+async def process_image():
 #     try:
         
 #         result = supabase.storage.from_(SUPABASE_BUCKET1).list()
