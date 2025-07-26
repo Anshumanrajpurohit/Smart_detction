@@ -8,10 +8,10 @@ from Smart_detction.backend.services.image_handler import get_images_from_supaba
 
 ## Create a router for the image processing endpoints
 
-# router = APIRouter()
+router = APIRouter()
 
-# @router.get("/process_images")
-# def process_image():
+@router.get("/process_images")
+def process_image():
 #     try:
         
 #         result = supabase.storage.from_(SUPABASE_BUCKET1).list()
