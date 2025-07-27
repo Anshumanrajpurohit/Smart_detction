@@ -1,4 +1,4 @@
-from database.config import supabase,SUPABASE_BUCKET1,SUPABASE_BUCKET2
+from ..database.config import supabase,SUPABASE_BUCKET1,SUPABASE_BUCKET2
 import cv2
 import numpy as np
 from fastapi import HTTPException
