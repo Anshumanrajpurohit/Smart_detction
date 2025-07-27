@@ -7,3 +7,4 @@ _pycache_/
 db/
 faces_old*/
 venv/
+backend/database/
