@@ -9,8 +9,8 @@ from fastapi import UploadFile, File, HTTPException
 import io
 from datetime import datetime
 from database.config import supabase, SUPABASE_BUCKET1, SUPABASE_BUCKET2
-from backend.services.predictor import predict_gender, predict_age
-from backend.services.image_handler import get_images_from_supabase,upload_image_to_supabase
+from services.predictor import predict_gender, predict_age
+# from services.image_handler import get_images_from_supabase,upload_image_to_supabase
 import base64
 import json
 
@@ -48,7 +48,7 @@ async def encode_embedding(embedding) -> str:
     return base64.b64encode(embedding.astype(np.float32).tobytes()).decode('utf-8')
 
 async def decode_embedding(encoded_embedding: str) -> np.ndarray:
-    decode_bytes = base64.b64encode(encoded_embedding.encode('utf-8'))
+    decode_bytes = base64.b64decode(encoded_embedding.encode('utf-8'))
     return np.frombuffer(decode_bytes, dtype=np.float32)
 
 async def process_faces_from_supabase():
@@ -79,9 +79,9 @@ async def process_faces_from_supabase():
                 is_duplicate = False
                 for old in old_faces:
                     old_embedding = decode_embedding(old["embedding"])
-                    match = face_compare(old_embedding, embedding)
+                    match = await face_compare(old_embedding, embedding)
                     if match:
-                        supabase.table("new_faces").delete().eq("id", new_face["id"]).execute()
+                        supabase.table("new_faces").delete().eq("c_id", new_face["c_id"]).execute()
                         is_duplicate = True
                         break
 
@@ -93,53 +93,53 @@ async def process_faces_from_supabase():
                     master_embedding = decode_embedding(person["embedding"])
 
                     if await face_compare(master_embedding, old_embedding):
-                        matched_id = person["id"]
+                        matched_id = person["c_id"]
                         break
 
                 if matched_id:
                     supabase.table("master_faces").update({
-                        "visit": person["visits"] + 1,
-                        "last_seen": datetime.now().isoformat()
-                    }).eq("id", matched_id).execute()
+                        "c_visit": person["c_visit"] + 1
+                        # "last_seen": datetime.now().isoformat()
+                    }).eq("c_id", matched_id).execute()
 
                     supabase.table("old_faces").insert({
-                        "image_url": new_url,
-                        "embedding": encode_embedding(embedding),
+                        "c_path": new_url,
+                        "c_embedding": encode_embedding(embedding)
                         # "timestamp": datetime.now().isoformat()
                     }).execute()
 
                     # Remove from new_faces
-                    supabase.table("new_faces").delete().eq("id", new_face["id"]).execute()
+                    supabase.table("new_faces").delete().eq("c_id", new_face["c_id"]).execute()
                     print(f"Matched known person ID {matched_id}, visit count increased")
                 else:
-                    gender = predict_gender(new_image_bytes)
-                    age = predict_age(new_image_bytes)
+                    gender = await predict_gender(new_image_bytes)
+                    age = await predict_age(new_image_bytes)
                     name = f"Person_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
                     supabase.table("master_faces").insert({
                         "c_name": name,
                         "c_path": new_url,
-                        "embedding": encode_embedding(embedding),
-                        "visit": 1,
-                        "age": age,
-                        "gender": gender,
-                        "first_seen": datetime.now().isoformat(),
-                        "last_seen": datetime.now().isoformat()
+                        "c_embedding": encode_embedding(embedding),
+                        "c_visit": 1,
+                        "c_age": age,
+                        "c_gender": gender
+                        # "first_seen": datetime.now().isoformat(),
+                        # "last_seen": datetime.now().isoformat()
                     }).execute()
 
                     
                     supabase.table("old_faces").insert({
                         "c_path": new_url,
-                        "embedding": encode_embedding(embedding),
+                        "c_embedding": encode_embedding(embedding),
                         # "timestamp": datetime.now().isoformat()
                     }).execute()
 
     
-                    supabase.table("new_faces").delete().eq("id", new_face["id"]).execute()
+                    supabase.table("new_faces").delete().eq("c_id", new_face["c_id"]).execute()
                     print(f"Added new person '{name}'")
 
         except Exception as e:
-            print(f"Error processing face ID {new_face.get('id')}: {e}")
+            print(f"Error processing face ID {new_face.get('c_id')}: {e}")
             continue
 
     print("Supabase face processing completed.")

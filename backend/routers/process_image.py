@@ -1,15 +1,15 @@
 import requests
-from backend.services.image_handler import get_images_from_supabase
+# from backend.services.image_handler import get_images_from_supabase
 from database.config import supabase, SUPABASE_BUCKET1,SUPABASE_BUCKET2
 from fastapi import FastAPI, HTTPException,APIRouter
 from fastapi.responses import StreamingResponse
-from backend.services.image_compare import process_faces_from_supabase
+from services.image_compare import process_faces_from_supabase
 
 ## Create a router for the image processing endpoints
 
 router = APIRouter()
 
-@router.get("/process_faces")
+@router.get("/")
 
 async def process_faces():
     try:
