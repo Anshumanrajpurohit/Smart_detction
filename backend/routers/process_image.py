@@ -1,20 +1,32 @@
 import requests
+from backend.services.image_handler import get_images_from_supabase
 from database.config import supabase, SUPABASE_BUCKET1,SUPABASE_BUCKET2
 from fastapi import FastAPI, HTTPException,APIRouter
 from fastapi.responses import StreamingResponse
-import io
-
+from backend.services.image_compare import process_faces_from_supabase
 
 ## Create a router for the image processing endpoints
 
 router = APIRouter()
 
-@router.post("/process_images")
-async def process_image():
-#     try:
-        
-#         result = supabase.storage.from_(SUPABASE_BUCKET1).list()
+@router.get("/process_faces")
 
+async def process_faces():
+    try:
+        final_processed_faces_output = await process_faces_from_supabase()
+        if not final_processed_faces_output:
+            raise HTTPException(status_code=404, detail="No faces found to process")
+        return ({"Faces Compared Successfully": final_processed_faces_output})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error processing faces: {str(e)}")
+
+
+# async def process_faces():
+#     try:
+#         result = await process_faces_from_supabase()
+#         return {"message": "Faces processed successfully", "data": result}
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=f"Error processing faces: {str(e)}")
 #         print(f"Files in bucket  {result}")
 #         if not result:
 #             raise HTTPException(status_code=404, detail="No images found in the bucket")
