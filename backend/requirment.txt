@@ -1,0 +1,7 @@
+deepface
+insightface
+opencv-python
+fastapi
+uvicorn
+numpy
+supabase
