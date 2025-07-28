@@ -3,3 +3,10 @@ dlib==19.24.2
 opencv-python==4.7.0.72
 numpy==1.24.3
 pickle-mixin==1.0.2  
+deepface
+insightface
+opencv-python
+fastapi
+uvicorn
+numpy
+supabase
