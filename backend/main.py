@@ -12,5 +12,5 @@ app = FastAPI()
 def read_root():
     return {"message": "Docker is working with FastAPI + DeepFace!"}
 
-# app.include_router(supabase_router, prefix="/api", tags=["Supabase Images"])
+app.include_router(supabase_router, prefix="/api", tags=["Supabase Images"])
 
