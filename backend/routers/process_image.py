@@ -11,25 +11,28 @@ router = APIRouter()
 
 @router.get("/")
 
-async def process_faces():
-    try:
-        final_processed_faces_output = await process_faces_from_supabase()
-        if not final_processed_faces_output:
-            raise HTTPException(status_code=404, detail="No faces found to process")
-        return ({"Faces Compared Successfully": final_processed_faces_output})
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error processing faces: {str(e)}")
-
-
 # async def process_faces():
 #     try:
-#         result = await process_faces_from_supabase()
-#         return {"message": "Faces processed successfully", "data": result}
+#         final_processed_faces_output = await process_faces_from_supabase()
+#         if not final_processed_faces_output:
+#             raise HTTPException(status_code=404, detail="No faces found to process")
+#         return ({"Faces Compared Successfully": final_processed_faces_output})
 #     except Exception as e:
 #         raise HTTPException(status_code=500, detail=f"Error processing faces: {str(e)}")
-#         print(f"Files in bucket  {result}")
-#         if not result:
-#             raise HTTPException(status_code=404, detail="No images found in the bucket")
+
+
+async def process_faces():
+    try:
+        result = await process_faces_from_supabase()
+
+        if not result:
+            raise HTTPException(status_code=404, detail="No faces found to process")
+
+        return {"message": "Faces processed successfully", "data": result}
+
+    except Exception as e:
+        print(f"[ERROR] Exception occurred: {e}")
+        raise HTTPException(status_code=500, detail=f"Error processing faces: {str(e)}")
 
 #         # Get the first file from the list
 #         file = result[0]

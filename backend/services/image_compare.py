@@ -39,9 +39,11 @@ async def face_extraction(img_bytes: bytes):
 async def face_compare(emb1,emb2):
     return cosine_similarity(emb1,emb2) > threshold 
 
+SUPABASE_BUCKET1 = "android"
+SUPABASE_BUCKET2 = "faces"
 
-async def download_image_from_url(url: str,BUCKET):
-    image_byte = supabase.storage.from_(BUCKET).download(url)
+async def download_image_from_url(url: str,SUPABASE_BUCKET1):
+    image_byte = supabase.storage.from_(SUPABASE_BUCKET1).download(url)
     return image_byte  
 
 async def encode_embedding(embedding) -> str:
@@ -52,12 +54,12 @@ async def decode_embedding(encoded_embedding: str) -> np.ndarray:
     return np.frombuffer(decode_bytes, dtype=np.float32)
 
 async def process_faces_from_supabase():
-    
+    processed = []
     new_faces = supabase.table("new_faces").select("*").execute().data
 
     if not new_faces:
         print("No new faces to process")
-        return
+        return []
 
     old_faces = supabase.table("old_faces").select("*").execute().data
     master_faces = supabase.table("master_faces").select("*").execute().data
@@ -65,6 +67,8 @@ async def process_faces_from_supabase():
     for new_face in new_faces:
         try:
             new_url = new_face["c_path"]
+            print(f"Trying to download: {new_url} from bucket: {SUPABASE_BUCKET1}")
+
             new_image_bytes = await download_image_from_url(new_url,SUPABASE_BUCKET1)
             if not new_image_bytes:
                 continue
@@ -108,6 +112,7 @@ async def process_faces_from_supabase():
                         # "timestamp": datetime.now().isoformat()
                     }).execute()
 
+                    processed.append({"status": "matched", "id": matched_id})
                     # Remove from new_faces
                     supabase.table("new_faces").delete().eq("c_id", new_face["c_id"]).execute()
                     print(f"Matched known person ID {matched_id}, visit count increased")
@@ -134,7 +139,7 @@ async def process_faces_from_supabase():
                         # "timestamp": datetime.now().isoformat()
                     }).execute()
 
-    
+                    processed.append({"status": "new", "name": name})
                     supabase.table("new_faces").delete().eq("c_id", new_face["c_id"]).execute()
                     print(f"Added new person '{name}'")
 
@@ -143,5 +148,6 @@ async def process_faces_from_supabase():
             continue
 
     print("Supabase face processing completed.")
+    return processed
 
 
