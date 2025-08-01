@@ -12,6 +12,7 @@ from database.config import supabase, SUPABASE_BUCKET1, SUPABASE_BUCKET2
 from services.predictor import predict_gender, predict_age
 import base64
 import json
+import uuid
 
 app = FaceAnalysis(name='buffalo_l')
 app.prepare(ctx_id=0, det_size=(640, 640))
@@ -147,8 +148,11 @@ async def process_android_bucket_images():
                         
                         # Add face path to new_faces table
                         await supabase.table("new_faces").insert({
-                            "c_id": face_filename  # Face image path in faces bucket
-                        }).execute()
+                                "c_id": face_filename,
+                                "c_path": face_filename,   # Assuming it's same as c_id
+                                "uuid": str(uuid.uuid4())
+                            }).execute()
+
                         
                         faces_processed += 1
                         processed_count += 1
@@ -252,6 +256,7 @@ async def process_faces_from_supabase():
                 # Add to old_faces (since it's not a duplicate)
                 print("Adding to old_faces...")
                 await supabase.table("old_faces").insert({
+                    "c_id": new_url,
                     "c_path": new_url,
                     "c_embedding": await encode_embedding(embedding)
                 }).execute()
