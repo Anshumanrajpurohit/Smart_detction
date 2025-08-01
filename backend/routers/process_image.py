@@ -3,7 +3,7 @@ import requests
 from database.config import supabase, SUPABASE_BUCKET1,SUPABASE_BUCKET2
 from fastapi import FastAPI, HTTPException,APIRouter
 from fastapi.responses import StreamingResponse
-from services.image_compare import process_faces_from_supabase
+from services.image_compare import continuous_face_processing
 
 ## Create a router for the image processing endpoints
 
@@ -23,7 +23,7 @@ router = APIRouter()
 
 async def process_faces():
     try:
-        result = await process_faces_from_supabase()
+        result = await continuous_face_processing()
 
         if not result:
             raise HTTPException(status_code=404, detail="No faces found to process")
