@@ -90,6 +90,16 @@ async def get_images_from_android_bucket():
         print(f"Error listing files from android bucket: {e}")
         return []
 
+async def delete_android_image(image_path: str):
+    """Delete processed image from android bucket"""
+    try:
+        supabase.storage.from_(SUPABASE_BUCKET1).remove([image_path])
+        print(f"Deleted processed image from android bucket: {image_path}")
+        return True
+    except Exception as e:
+        print(f"Error deleting android image {image_path}: {e}")
+        return False
+
 async def process_android_bucket_images():
     """Process images from android bucket when new_faces is empty"""
     try:
@@ -100,14 +110,15 @@ async def process_android_bucket_images():
         
         if not android_images:
             print("No images found in android bucket")
-            return []
+            return 0
         
+        print(f"Found {len(android_images)} images in android bucket to process")
         processed_count = 0
         
         for image_file in android_images:
             try:
                 image_path = image_file['name']
-                print(f"Processing image from android bucket: {image_path}")
+                print(f"Processing android image: {image_path}")
                 
                 # Download image from android bucket
                 image_bytes = await download_image_from_url(image_path, SUPABASE_BUCKET1)
@@ -119,11 +130,14 @@ async def process_android_bucket_images():
                 extracted_faces = await face_extraction(image_bytes)
                 if not extracted_faces:
                     print(f"No faces found in {image_path}")
+                    # Delete image even if no faces found (processed but no faces)
+                    await delete_android_image(image_path)
                     continue
                 
                 print(f"Found {len(extracted_faces)} faces in {image_path}")
                 
                 # Process each extracted face
+                faces_processed = 0
                 for face_idx, (cropped_face, embedding) in enumerate(extracted_faces):
                     try:
                         # Upload face to faces bucket
@@ -136,18 +150,28 @@ async def process_android_bucket_images():
                             "uuid": face_filename  # Face image path in faces bucket
                         }).execute()
                         
+                        faces_processed += 1
                         processed_count += 1
                         print(f"Added face {face_idx+1} from {image_path} to new_faces: {face_filename}")
                         
                     except Exception as e:
                         print(f"Error processing face {face_idx} from {image_path}: {e}")
                         continue
+                
+                # Delete the android image after processing (regardless of success/failure)
+                await delete_android_image(image_path)
+                print(f"Processed {faces_processed} faces from {image_path} and deleted original")
                         
             except Exception as e:
                 print(f"Error processing android image {image_file.get('name', 'unknown')}: {e}")
+                # Try to delete the problematic image to avoid reprocessing
+                try:
+                    await delete_android_image(image_file.get('name', ''))
+                except:
+                    pass
                 continue
         
-        print(f"Processed {processed_count} faces from android bucket images")
+        print(f"Processed {processed_count} faces from {len(android_images)} android images (all deleted)")
         return processed_count
         
     except Exception as e:
@@ -273,7 +297,7 @@ async def process_faces_from_supabase():
                         # Insert new master face
                         supabase.table("master_faces").insert({
                             "c_name": name,
-                            "c_path": new_url,
+                            "c_path": new_url,  # Store face path in faces bucket
                             "c_embedding": await encode_embedding(embedding),
                             "c_visit": 1,
                             "c_age": age,
