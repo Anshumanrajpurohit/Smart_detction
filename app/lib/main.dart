@@ -54,7 +54,8 @@ class _CameraHomeState extends State<CameraHome> {
       return;
     }
 
-    controller = CameraController(cameras[0], ResolutionPreset.high);
+    // Always use front camera (index 1)
+    controller = CameraController(cameras[1], ResolutionPreset.high);
 
     try {
       await controller!.initialize();
@@ -131,9 +132,14 @@ class _CameraHomeState extends State<CameraHome> {
                 ? CameraPreview(controller!)
                 : Center(child: Text("Camera Stopped")),
           ),
-          ElevatedButton(
-            onPressed: stopCamera,
-            child: Text("Stop"),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              ElevatedButton(
+                onPressed: stopCamera,
+                child: Text("Stop"),
+              ),
+            ],
           ),
         ],
       ),
