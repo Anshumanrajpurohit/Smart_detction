@@ -64,7 +64,7 @@ async def process_faces_from_supabase():
 
     for new_face in new_faces:
         try:
-            new_url = new_face["c_path"]
+            new_url = new_face["uuid"]
             new_image_bytes = await download_image_from_url(new_url,SUPABASE_BUCKET1)
             if not new_image_bytes:
                 continue
