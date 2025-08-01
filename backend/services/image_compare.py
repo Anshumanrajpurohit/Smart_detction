@@ -147,7 +147,7 @@ async def process_android_bucket_images():
                         
                         # Add face path to new_faces table
                         supabase.table("new_faces").insert({
-                            "uuid": face_filename  # Face image path in faces bucket
+                            "c_id": face_filename  # Face image path in faces bucket
                         }).execute()
                         
                         faces_processed += 1
@@ -207,7 +207,7 @@ async def process_faces_from_supabase():
 
         for new_face in new_faces:
             try:
-                new_url = new_face["uuid"]  # Face image path in faces bucket
+                new_url = new_face["c_id"]  # Face image path in faces bucket
                 print(f"Processing face: {new_url}")
 
                 # Download face image from faces bucket (SUPABASE_BUCKET2)
