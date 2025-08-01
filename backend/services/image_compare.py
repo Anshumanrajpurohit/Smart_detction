@@ -12,6 +12,7 @@ from database.config import supabase, SUPABASE_BUCKET1, SUPABASE_BUCKET2
 from services.predictor import predict_gender, predict_age
 import base64
 import json
+import uuid as uuid_lib
 
 app = FaceAnalysis(name='buffalo_l')
 app.prepare(ctx_id=0, det_size=(640, 640))
@@ -42,7 +43,7 @@ async def face_extraction(img_bytes: bytes):
         return []
 
 async def face_compare(emb1, emb2):
-    similarity = await cosine_similarity(emb1, emb2)  # Added missing await
+    similarity = await cosine_similarity(emb1, emb2)
     return similarity > threshold 
 
 async def download_image_from_url(url: str, bucket_name: str):
@@ -52,6 +53,102 @@ async def download_image_from_url(url: str, bucket_name: str):
     except Exception as e:
         print(f"Error downloading image {url}: {e}")
         return None
+
+async def upload_face_to_bucket(face_image: np.ndarray, bucket_name: str) -> str:
+    """Upload extracted face to bucket and return the file path"""
+    try:
+        # Convert face image to bytes
+        _, buffer = cv2.imencode('.jpg', face_image)
+        face_bytes = buffer.tobytes()
+        
+        # Generate unique filename
+        filename = f"face_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid_lib.uuid4().hex[:8]}.jpg"
+        
+        # Upload to bucket
+        supabase.storage.from_(bucket_name).upload(filename, face_bytes)
+        print(f"Uploaded face to {bucket_name}/{filename}")
+        return filename
+    except Exception as e:
+        print(f"Error uploading face to bucket: {e}")
+        return None
+
+async def get_images_from_bucket(bucket_name: str):
+    """Get all image files from bucket"""
+    try:
+        files = supabase.storage.from_(bucket_name).list()
+        # Filter for image files
+        image_files = [f for f in files if f['name'].lower().endswith(('.jpg', '.jpeg', '.png', '.bmp'))]
+        return image_files
+    except Exception as e:
+        print(f"Error listing files from bucket {bucket_name}: {e}")
+        return []
+
+async def process_bucket_images():
+    """Process images directly from android bucket when new_faces is empty"""
+    try:
+        print("Processing images directly from android bucket...")
+        
+        # Get all images from android bucket
+        bucket_images = await get_images_from_bucket(SUPABASE_BUCKET1)
+        
+        if not bucket_images:
+            print("No images found in android bucket")
+            return []
+        
+        processed_faces = []
+        
+        for image_file in bucket_images:
+            try:
+                image_path = image_file['name']
+                print(f"Processing image: {image_path}")
+                
+                # Download image
+                image_bytes = await download_image_from_url(image_path, SUPABASE_BUCKET1)
+                if not image_bytes:
+                    continue
+                
+                # Extract faces
+                extracted_faces = await face_extraction(image_bytes)
+                if not extracted_faces:
+                    print(f"No faces found in {image_path}")
+                    continue
+                
+                # Process each face found in the image
+                for face_idx, (cropped_face, embedding) in enumerate(extracted_faces):
+                    try:
+                        # Upload face to faces bucket
+                        face_filename = await upload_face_to_bucket(cropped_face, SUPABASE_BUCKET2)
+                        if not face_filename:
+                            continue
+                        
+                        # Add to new_faces table for processing
+                        supabase.table("new_faces").insert({
+                            "uuid": face_filename,  # Use the face filename in faces bucket
+                            "c_path": image_path    # Original image path for reference
+                        }).execute()
+                        
+                        processed_faces.append({
+                            "original_image": image_path,
+                            "face_file": face_filename,
+                            "face_index": face_idx
+                        })
+                        
+                        print(f"Added face {face_idx} from {image_path} to processing queue")
+                        
+                    except Exception as e:
+                        print(f"Error processing face {face_idx} from {image_path}: {e}")
+                        continue
+                        
+            except Exception as e:
+                print(f"Error processing image {image_file.get('name', 'unknown')}: {e}")
+                continue
+        
+        print(f"Processed {len(processed_faces)} faces from bucket images")
+        return processed_faces
+        
+    except Exception as e:
+        print(f"Error in process_bucket_images: {e}")
+        return []
 
 async def encode_embedding(embedding) -> str:
     return base64.b64encode(embedding.astype(np.float32).tobytes()).decode('utf-8')
@@ -66,10 +163,22 @@ async def process_faces_from_supabase():
     try:
         new_faces = supabase.table("new_faces").select("*").execute().data
         
+        # If new_faces is empty, process images from bucket
         if not new_faces:
-            print("No new faces to process")
-            await asyncio.sleep(5)  # Wait 5 seconds before next check
-            return []
+            print("No new faces to process, checking android bucket for images...")
+            bucket_processed = await process_bucket_images()
+            
+            if not bucket_processed:
+                print("No images processed from bucket, waiting...")
+                await asyncio.sleep(5)
+                return []
+            
+            # After processing bucket images, fetch new_faces again
+            new_faces = supabase.table("new_faces").select("*").execute().data
+            if not new_faces:
+                print("Still no new faces after bucket processing")
+                await asyncio.sleep(5)
+                return []
 
         old_faces = supabase.table("old_faces").select("*").execute().data
         master_faces = supabase.table("master_faces").select("*").execute().data
@@ -77,11 +186,14 @@ async def process_faces_from_supabase():
         for new_face in new_faces:
             try:
                 new_url = new_face["uuid"]
-                print(f"Trying to download: {new_url} from bucket: {SUPABASE_BUCKET1}")
+                print(f"Trying to download: {new_url} from bucket: {SUPABASE_BUCKET2}")  # Changed to BUCKET2 (faces)
 
-                new_image_bytes = await download_image_from_url(new_url, SUPABASE_BUCKET1)
+                # Download from faces bucket now (since faces are extracted there)
+                new_image_bytes = await download_image_from_url(new_url, SUPABASE_BUCKET2)
                 if not new_image_bytes:
                     print(f"Failed to download image: {new_url}")
+                    # Clean up the entry
+                    supabase.table("new_faces").delete().eq("c_id", new_face["c_id"]).execute()
                     continue
 
                 extracted_faces = await face_extraction(new_image_bytes)
@@ -97,7 +209,7 @@ async def process_faces_from_supabase():
                     # Check for duplicates in old_faces
                     for old in old_faces:
                         try:
-                            old_embedding = await decode_embedding(old["c_embedding"])  # Fixed column name
+                            old_embedding = await decode_embedding(old["c_embedding"])
                             match = await face_compare(old_embedding, embedding)
                             if match:
                                 print(f"Duplicate face found, removing from new_faces")
@@ -118,10 +230,10 @@ async def process_faces_from_supabase():
                     for person in master_faces:
                         try:
                             master_embedding = await decode_embedding(person["c_embedding"])
-                            match = await face_compare(master_embedding, embedding)  # Fixed: use embedding, not old_embedding
+                            match = await face_compare(master_embedding, embedding)
                             if match:
                                 matched_id = person["c_id"]
-                                matched_person = person  # Store the matched person data
+                                matched_person = person
                                 break
                         except Exception as e:
                             print(f"Error comparing with master face: {e}")
@@ -131,13 +243,13 @@ async def process_faces_from_supabase():
                         # Update visit count for known person
                         try:
                             supabase.table("master_faces").update({
-                                "c_visit": matched_person["c_visit"] + 1  # Fixed: use matched_person instead of person
+                                "c_visit": matched_person["c_visit"] + 1
                             }).eq("c_id", matched_id).execute()
 
                             # Add to old_faces
                             supabase.table("old_faces").insert({
                                 "c_path": new_url,
-                                "c_embedding": await encode_embedding(embedding)  # Fixed column name
+                                "c_embedding": await encode_embedding(embedding)
                             }).execute()
 
                             processed.append({"status": "matched", "id": matched_id})
@@ -150,8 +262,17 @@ async def process_faces_from_supabase():
                     else:
                         # Create new person entry
                         try:
-                            gender = await predict_gender(new_image_bytes)
-                            age = await predict_age(new_image_bytes)
+                            # For gender/age prediction, we need the original full image
+                            # Try to get original image path if available
+                            original_image_bytes = new_image_bytes  # Use face image for now
+                            if "c_path" in new_face and new_face["c_path"]:
+                                # Try to get original image for better gender/age prediction
+                                original_bytes = await download_image_from_url(new_face["c_path"], SUPABASE_BUCKET1)
+                                if original_bytes:
+                                    original_image_bytes = original_bytes
+                            
+                            gender = await predict_gender(original_image_bytes)
+                            age = await predict_age(original_image_bytes)
                             name = f"Person_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
                             # Insert new master face
@@ -184,7 +305,7 @@ async def process_faces_from_supabase():
 
     except Exception as e:
         print(f"Error in process_faces_from_supabase: {e}")
-        await asyncio.sleep(10)  # Wait longer on database errors
+        await asyncio.sleep(10)
 
     print("Supabase face processing completed.")
     return processed
