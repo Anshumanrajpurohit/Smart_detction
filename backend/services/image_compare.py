@@ -47,7 +47,7 @@ async def face_compare(emb1, emb2):
 
 async def download_image_from_url(url: str, bucket_name: str):
     try:
-        image_byte = supabase.storage.from_(bucket_name).download(url)
+        image_byte = await supabase.storage.from_(bucket_name).download(url)
         return image_byte  
     except Exception as e:
         print(f"Error downloading image {url}: {e}")
@@ -71,7 +71,7 @@ async def upload_face_to_faces_bucket(cropped_face: np.ndarray) -> str:
         face_filename = f"face_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}.jpg"
         
         # Upload to faces bucket (SUPABASE_BUCKET2)
-        supabase.storage.from_(SUPABASE_BUCKET2).upload(face_filename, face_bytes)
+        await supabase.storage.from_(SUPABASE_BUCKET2).upload(face_filename, face_bytes)
         print(f"Uploaded face to {SUPABASE_BUCKET2}/{face_filename}")
         return face_filename
     except Exception as e:
@@ -81,7 +81,7 @@ async def upload_face_to_faces_bucket(cropped_face: np.ndarray) -> str:
 async def get_images_from_android_bucket():
     """Get all image files from android bucket"""
     try:
-        files = supabase.storage.from_(SUPABASE_BUCKET1).list()
+        files = await supabase.storage.from_(SUPABASE_BUCKET1).list()
         # Filter for image files
         image_files = [f for f in files if f['name'].lower().endswith(('.jpg', '.jpeg', '.png', '.bmp'))]
         print(f"Found {len(image_files)} images in android bucket")
@@ -93,7 +93,7 @@ async def get_images_from_android_bucket():
 async def delete_android_image(image_path: str):
     """Delete processed image from android bucket"""
     try:
-        supabase.storage.from_(SUPABASE_BUCKET1).remove([image_path])
+        await supabase.storage.from_(SUPABASE_BUCKET1).remove([image_path])
         print(f"Deleted processed image from android bucket: {image_path}")
         return True
     except Exception as e:
@@ -146,7 +146,7 @@ async def process_android_bucket_images():
                             continue
                         
                         # Add face path to new_faces table
-                        supabase.table("new_faces").insert({
+                        await supabase.table("new_faces").insert({
                             "c_id": face_filename  # Face image path in faces bucket
                         }).execute()
                         
@@ -183,7 +183,7 @@ async def process_faces_from_supabase():
     
     try:
         # Check new_faces table
-        new_faces = supabase.table("new_faces").select("*").execute().data
+        new_faces = await supabase.table("new_faces").select("*").execute().data
         
         # If new_faces is empty, process images from android bucket
         if not new_faces:
@@ -191,15 +191,15 @@ async def process_faces_from_supabase():
             await process_android_bucket_images()
             
             # After processing android bucket, check new_faces again
-            new_faces = supabase.table("new_faces").select("*").execute().data
+            new_faces = await supabase.table("new_faces").select("*").execute().data
             if not new_faces:
                 print("Still no new faces after processing android bucket")
                 await asyncio.sleep(5)
                 return []
 
         # Get old_faces and master_faces for comparison
-        old_faces = supabase.table("old_faces").select("*").execute().data
-        master_faces = supabase.table("master_faces").select("*").execute().data
+        old_faces = await supabase.table("old_faces").select("*").execute().data
+        master_faces = await supabase.table("master_faces").select("*").execute().data
 
         print(f"Processing {len(new_faces)} new faces")
         print(f"old_faces count: {len(old_faces)}")
@@ -215,7 +215,7 @@ async def process_faces_from_supabase():
                 if not new_image_bytes:
                     print(f"Failed to download face image: {new_url}")
                     # Clean up invalid entry
-                    supabase.table("new_faces").delete().eq("c_id", new_face["c_id"]).execute()
+                    await supabase.table("new_faces").delete().eq("c_id", new_face["c_id"]).execute()
                     continue
 
                 # Extract face and embedding from face image
@@ -223,7 +223,7 @@ async def process_faces_from_supabase():
                 if not extracted_faces:
                     print(f"No faces found in face image: {new_url}")
                     # Clean up processed entry
-                    supabase.table("new_faces").delete().eq("c_id", new_face["c_id"]).execute()
+                    await supabase.table("new_faces").delete().eq("c_id", new_face["c_id"]).execute()
                     continue
 
                 # Process the face (should be only one face in extracted face image)
@@ -239,7 +239,7 @@ async def process_faces_from_supabase():
                         match = await face_compare(old_embedding, embedding)
                         if match:
                             print(f"Duplicate face found! Removing from new_faces")
-                            supabase.table("new_faces").delete().eq("c_id", new_face["c_id"]).execute()
+                            await supabase.table("new_faces").delete().eq("c_id", new_face["c_id"]).execute()
                             is_duplicate = True
                             break
                     except Exception as e:
@@ -251,7 +251,7 @@ async def process_faces_from_supabase():
 
                 # Add to old_faces (since it's not a duplicate)
                 print("Adding to old_faces...")
-                supabase.table("old_faces").insert({
+                await supabase.table("old_faces").insert({
                     "c_path": new_url,
                     "c_embedding": await encode_embedding(embedding)
                 }).execute()
@@ -278,7 +278,7 @@ async def process_faces_from_supabase():
                     # Existing person - increment visit count
                     try:
                         new_visit_count = matched_person["c_visit"] + 1
-                        supabase.table("master_faces").update({
+                        await supabase.table("master_faces").update({
                             "c_visit": new_visit_count
                         }).eq("c_id", matched_id).execute()
 
@@ -295,7 +295,7 @@ async def process_faces_from_supabase():
                         name = f"Person_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
                         # Insert new master face
-                        supabase.table("master_faces").insert({
+                        await supabase.table("master_faces").insert({
                             "c_name": name,
                             "c_path": new_url,  # Store face path in faces bucket
                             "c_embedding": await encode_embedding(embedding),
@@ -311,7 +311,7 @@ async def process_faces_from_supabase():
                         print(f"Error creating new person: {e}")
 
                 # Remove from new_faces (processed successfully)
-                supabase.table("new_faces").delete().eq("c_id", new_face["c_id"]).execute()
+                await supabase.table("new_faces").delete().eq("c_id", new_face["c_id"]).execute()
                 print(f"Removed {new_url} from new_faces")
 
             except Exception as e:
