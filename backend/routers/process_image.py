@@ -1,3 +1,8 @@
+#  process image
+
+
+
+
 import requests
 # from backend.services.image_handler import get_images_from_supabase
 from database.config import supabase, SUPABASE_BUCKET1,SUPABASE_BUCKET2
